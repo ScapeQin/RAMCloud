@@ -99,7 +99,7 @@ CXXWARNS := $(COMWARNS) -Wno-non-template-friend -Woverloaded-virtual \
 		-Wcast-qual \
 		-Wcast-align -Wconversion
 ifeq ($(COMPILER),gnu)
-CXXWARNS += -Weffc++
+CXXWARNS +=
 endif
 # Too many false positives list:
 # -Wunreachable-code
@@ -107,6 +107,7 @@ endif
 # -Winline
 
 LIBS := $(EXTRALIBS) $(LOGCABIN_LIB) $(ZOOKEEPER_LIB) \
+    -L$(TOP)/Arachne -lArachne -L$(TOP)/PerfUtils -lPerfUtils \
 	-lpcrecpp -lboost_program_options \
 	-lprotobuf -lrt -lboost_filesystem -lboost_system \
 	-lpthread -lssl -lcrypto
@@ -118,6 +119,7 @@ endif
 INCLUDES := -I$(TOP)/src \
             -I$(TOP)/$(OBJDIR) \
             -I$(GTEST_DIR)/include \
+            -I$(TOP)/Arachne \
             -I/usr/local/openonload-201405/src/include \
              $(NULL)
 ifeq ($(LOGCABIN),yes)
