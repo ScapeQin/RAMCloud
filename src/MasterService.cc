@@ -1328,6 +1328,7 @@ MasterService::multiIncrement(const WireFormat::MultiOp::Request* reqHdr,
             &currentResp->version, &currentResp->status);
         currentResp->newValue.asInt64 = asInt64;
         currentResp->newValue.asDouble = asDouble;
+        Arachne::yield();
     }
 
     // All of the individual increments were done asynchronously. We must sync
@@ -1416,7 +1417,7 @@ MasterService::multiRead(const WireFormat::MultiOp::Request* reqHdr,
         currentResp->status = objectManager.readObject(
                 key, rpc->replyPayload, &rejectRules,
                 &currentResp->version);
-
+        Arachne::yield();
         if (currentResp->status != STATUS_OK)
             continue;
 
@@ -1494,6 +1495,7 @@ MasterService::multiRemove(const WireFormat::MultiOp::Request* reqHdr,
         catch (RetryException& e) {
             currentResp->status = STATUS_RETRY;
         }
+        Arachne::yield();
     }
 
     // All of the individual removes were done asynchronously. We must sync
@@ -1585,6 +1587,7 @@ MasterService::multiWrite(const WireFormat::MultiOp::Request* reqHdr,
             currentResp->status = STATUS_RETRY;
         }
         reqOffset += currentReq->length;
+        Arachne::yield();
     }
 
     // By design, our response will be shorter than the request. This ensures
