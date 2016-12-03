@@ -105,7 +105,7 @@ LogCleaner::LogCleaner(Context* context,
     }
 
     for (int i = 0; i < numThreads; i++)
-        threads.push_back(NULL);
+        threads.push_back(Arachne::NullThread);
 }
 
 /**
@@ -131,8 +131,8 @@ void
 LogCleaner::start()
 {
     for (int i = 0; i < numThreads; i++) {
-        if (threads[i] == NULL)
-            threads[i] = new std::thread(cleanerThreadEntry, this, context);
+        if (threads[i] == Arachne::NullThread)
+            threads[i] = Arachne::createThread(cleanerThreadEntry, this, context);
     }
 }
 
@@ -150,10 +150,9 @@ LogCleaner::stop()
     Fence::sfence();
 
     for (int i = 0; i < numThreads; i++) {
-        if (threads[i] != NULL) {
-            threads[i]->join();
-            delete threads[i];
-            threads[i] = NULL;
+        if (threads[i] != Arachne::NullThread) {
+            Arachne::join(threads[i]);
+            threads[i] = Arachne::NullThread;
         }
     }
 
@@ -190,7 +189,7 @@ static volatile uint32_t threadCnt;
 
 /**
  * Static entry point for the cleaner thread. This is invoked via the
- * std::thread() constructor. This thread performs continuous cleaning on an
+ * Arachne::createThread. This thread performs continuous cleaning on an
  * as-needed basis.
  */
 void
@@ -208,6 +207,7 @@ LogCleaner::cleanerThreadEntry(LogCleaner* logCleaner, Context* context)
                 break;
 
             logCleaner->doWork(&state);
+            Arachne::yield();
         }
     } catch (const Exception& e) {
         DIE("Fatal error in cleaner thread: %s", e.what());
@@ -279,7 +279,7 @@ LogCleaner::doWork(CleanerThreadState* state)
         Lock lock(mutex);
         activeThreads--;
         if ((activeThreads == 0) && (disableCount != 0)) {
-            cleanerIdle.notify_all();
+            cleanerIdle.notifyAll();
         }
     }
 
@@ -290,7 +290,7 @@ LogCleaner::doWork(CleanerThreadState* state)
         // when there's no cleaning to be done and threads manage to caravan
         // together.
         useconds_t r = downCast<useconds_t>(generateRandom() % POLL_USEC) / 10;
-        usleep(POLL_USEC + r);
+        Arachne::sleep((POLL_USEC + r) * 1000);
     }
 }
 
@@ -328,6 +328,7 @@ LogCleaner::doMemoryCleaning()
             segment);
     assert(survivor != NULL);
     waitTicks.stop();
+    Arachne::yield();
 
     localMetrics.totalBytesInCompactedSegments +=
         segment->getSegletsAllocated() * segletSize;
@@ -367,6 +368,7 @@ LogCleaner::doMemoryCleaning()
                     buffer.size();
                 liveScannedEntryTotalLengths[type] += bytesAppended;
             }
+            Arachne::yield();
         }
     }
 
@@ -394,6 +396,7 @@ LogCleaner::doMemoryCleaning()
         survivor->getAppendedLength();
     localMetrics.totalSegmentsCompacted++;
 
+    Arachne::yield();
     // Merge our local metrics into the global aggregate counters.
     inMemoryMetrics.merge(localMetrics);
 
@@ -406,6 +409,7 @@ LogCleaner::doMemoryCleaning()
             Cycles::rdtsc() - startTicks;
 
     AtomicCycleCounter __(&inMemoryMetrics.compactionCompleteTicks);
+    Arachne::yield();
     segmentManager.compactionComplete(segment, survivor);
 }
 
@@ -448,6 +452,7 @@ LogCleaner::doDiskCleaning()
         maxLiveBytes += liveBytes;
         segletsBefore += segment->getSegletsAllocated();
     }
+    Arachne::yield();
 
     // Relocate the live entries to survivor segments. Be sure to use local
     // counters and merge them into our global metrics afterwards to avoid
@@ -462,6 +467,7 @@ LogCleaner::doDiskCleaning()
         segletsAfter += segment->getSegletsAllocated();
 
     TEST_LOG("used %u seglets and %u segments", segletsAfter, segmentsAfter);
+    Arachne::yield();
 
     // If this doesn't hold, then our statistics are wrong. Perhaps
     // MasterService is issuing a log->free(), but is leaving a reference in
@@ -499,6 +505,7 @@ LogCleaner::doDiskCleaning()
             Cycles::rdtsc() - startTicks;
 
     AtomicCycleCounter __(&onDiskMetrics.cleaningCompleteTicks);
+    Arachne::yield();
     segmentManager.cleaningComplete(segmentsToClean, survivors);
 
     return;
