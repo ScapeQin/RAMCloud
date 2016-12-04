@@ -82,7 +82,7 @@ bool
 AbstractLog::append(AppendVector* appends, uint32_t numAppends)
 {
     CycleCounter<uint64_t> _(&metrics.totalAppendTicks);
-    SpinLock::Guard lock(appendLock);
+    Lock lock(appendLock);
     metrics.totalAppendCalls++;
 
     uint32_t lengths[numAppends];
@@ -132,7 +132,7 @@ AbstractLog::append(Buffer *logBuffer, Reference *references,
                     uint32_t numEntries)
 {
     CycleCounter<uint64_t> _(&metrics.totalAppendTicks);
-    SpinLock::Guard lock(appendLock);
+    Lock lock(appendLock);
     metrics.totalAppendCalls++;
 
     if (head == NULL || !head->hasSpaceFor(logBuffer->size())) {
@@ -367,7 +367,7 @@ AbstractLog::getSegment(Reference reference)
  *      to complete the operation.
  */
 bool
-AbstractLog::append(const SpinLock::Guard& lock,
+AbstractLog::append(const Lock& lock,
             LogEntryType type,
             const void* buffer,
             uint32_t length,
@@ -449,7 +449,7 @@ AbstractLog::append(const SpinLock::Guard& lock,
  *      to complete the operation.
  */
 bool
-AbstractLog::append(const SpinLock::Guard& lock,
+AbstractLog::append(const Lock& lock,
             const void* buffer,
             uint32_t *entryLength,
             Reference* outReference,
@@ -536,7 +536,7 @@ AbstractLog::append(const SpinLock::Guard& lock,
  *      complete the operation.
  */
 bool
-AbstractLog::append(const SpinLock::Guard& lock,
+AbstractLog::append(const Lock& lock,
             LogEntryType type,
             Buffer& buffer,
             Reference* outReference,
