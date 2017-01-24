@@ -106,6 +106,10 @@ WorkerManager::WorkerManager(Context* context, uint32_t maxCores)
 void
 WorkerManager::handleRpc(Transport::ServerRpc* rpc)
 {
+    // Since this method should only run in the dispatch thread, there is no
+    // need to synchronize this state.
+    static uint32_t nextRpcId = 0;
+
     // Find the service for this RPC.
     const WireFormat::RequestCommon* header;
     header = rpc->requestPayload.getStart<WireFormat::RequestCommon>();
@@ -133,7 +137,7 @@ WorkerManager::handleRpc(Transport::ServerRpc* rpc)
     }
     timeTrace("handleRpc processing opcode %d", header->opcode);
 #ifdef LOG_RPCS
-    LOG(NOTICE, "Received %s RPC at %lu with %u bytes",
+    LOG(NOTICE, "Received %s RPC at %u with %u bytes",
             WireFormat::opcodeSymbol(header->opcode),
             reinterpret_cast<uint64_t>(rpc),
             rpc->requestPayload.size());
@@ -150,10 +154,9 @@ WorkerManager::handleRpc(Transport::ServerRpc* rpc)
     }
 
     // Create a new thread to handle the RPC.
-    #ifdef SMTT
-    TimeTrace::record("handing off opcode %d to worker thread",
-            header->opcode);
-    #endif
+    rpc->id = nextRpcId++;
+    timeTrace("handing off opcode %d with ID %u to worker thread",
+            header->opcode, rpc->id);
     if (Arachne::createThread(&WorkerManager::workerMain, this, rpc) ==
             Arachne::NullThread) {
         // On failure, enqueue the rpc.
@@ -207,14 +210,14 @@ WorkerManager::poll()
         }
 
 #ifdef LOG_RPCS
-            LOG(NOTICE, "Sending reply for %s at %lu with %u bytes",
+            LOG(NOTICE, "Sending reply for %s at %u with %u bytes",
                     WireFormat::opcodeSymbol(&rpc->requestPayload),
                     reinterpret_cast<uint64_t>(rpc),
                     rpc->replyPayload.size());
 #endif
             rpc->sendReply();
-            timeTrace("sent reply for opcode %d",
-                *(rpc->requestPayload.getStart<uint16_t>()));
+            timeTrace("sent reply for opcode %d, id = %u",
+                *(rpc->requestPayload.getStart<uint16_t>()), rpc->id);
         numOutstandingRpcs--;
         lock.lock();
     }
@@ -271,7 +274,8 @@ WorkerManager::workerMain(Transport::ServerRpc* serverRpc)
     try {
         const WireFormat::RequestCommon* header;
         header = serverRpc->requestPayload.getStart<WireFormat::RequestCommon>();
-        timeTrace("worker thread received opcode %d", header->opcode);
+        timeTrace("worker thread received opcode %d with id = %u",
+                header->opcode, serverRpc->id);
         Worker worker(context, serverRpc, WireFormat::Opcode(header->opcode));
 
         serverRpc->epoch = LogProtector::getCurrentEpoch();
@@ -281,8 +285,8 @@ WorkerManager::workerMain(Transport::ServerRpc* serverRpc)
 
         // Pass the RPC back to the dispatch thread for completion.
         worker.sendReply();
-        timeTrace("worker thread completed opcode %d; "
-                "dispatch thread signaled", worker.opcode);
+        timeTrace("worker thread completed opcode %d with id = %u; "
+                "dispatch thread signaled", worker.opcode, serverRpc->id);
 
         // Update performance statistics.
         uint64_t current = Cycles::rdtsc();
