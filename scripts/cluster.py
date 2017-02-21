@@ -638,7 +638,7 @@ def run(
         coordinator = cluster.start_coordinator(coordinator_host,
                                                 coordinator_args)
         if disjunct:
-            cluster.hosts.pop(0)
+            cluster.hosts.pop()
 
         if old_master_host:
             oldMaster = cluster.start_server(old_master_host,
@@ -685,6 +685,8 @@ def run(
                     host_list = cluster.hosts[num_servers:]
                     if share_hosts:
                         host_list.extend(cluster.hosts[:num_servers])
+                    else: # Remove the coordinator from this list
+                        host_list.pop()
 
                 client_hosts = [host_list[i % len(host_list)]
                                 for i in range(num_clients)]
