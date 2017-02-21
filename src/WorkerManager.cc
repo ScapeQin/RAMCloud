@@ -40,7 +40,7 @@
 namespace RAMCloud {
 // Uncomment the following line (or specify -D SMTT on the make command line)
 // to enable a bunch of time tracing in this module.
-//#define SMTT 1
+#define SMTT 1
 
 // Provides a shorthand way of invoking TimeTrace::record, compiled in or out
 // by the SMTT #ifdef.
@@ -133,7 +133,7 @@ WorkerManager::handleRpc(Transport::ServerRpc* rpc)
         rpc->sendReply();
         return;
     }
-    timeTrace("handleRpc processing opcode %d", header->opcode);
+//    timeTrace("handleRpc processing opcode %d", header->opcode);
 #ifdef LOG_RPCS
     LOG(NOTICE, "Received %s RPC at %u with %u bytes",
             WireFormat::opcodeSymbol(header->opcode),
@@ -190,8 +190,8 @@ WorkerManager::poll()
 
         foundWork = 1;
 
-        timeTrace("dispatch thread starting cleanup for opcode %d",
-                *(rpc->requestPayload.getStart<uint16_t>()));
+        timeTrace("dispatch thread starting cleanup for opcode %d, id = %u",
+                *(rpc->requestPayload.getStart<uint16_t>()), rpc->id);
 
 #ifdef LOG_RPCS
             LOG(NOTICE, "Sending reply for %s at %u with %u bytes",
