@@ -1127,9 +1127,9 @@ ObjectManager::replaySegment(SideLog* sideLog, SegmentIterator& it,
  * log since the previous syncChanges() operation.
  */
 void
-ObjectManager::syncChanges()
+ObjectManager::syncChanges(uint32_t rpcId)
 {
-    log.sync();
+    log.sync(rpcId);
 }
 
 /**
