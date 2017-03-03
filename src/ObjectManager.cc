@@ -1124,9 +1124,13 @@ ObjectManager::replaySegment(SideLog* sideLog, SegmentIterator& it,
  * log since the previous syncChanges() operation.
  */
 void
-ObjectManager::syncChanges(uint32_t rpcId)
+ObjectManager::syncChanges(Log::Reference reference, uint32_t rpcId)
 {
-    log.sync(rpcId);
+    if (reference.toInteger()){
+        log.syncTo(reference, rpcId);
+    } else {
+        log.sync(rpcId);
+    }
 }
 
 /**
@@ -1174,7 +1178,8 @@ ObjectManager::syncChanges(uint32_t rpcId)
 Status
 ObjectManager::writeObject(Object& newObject, RejectRules* rejectRules,
                 uint64_t* outVersion, Buffer* removedObjBuffer,
-                RpcResult* rpcResult, uint64_t* rpcResultPtr, uint32_t rpcId)
+                RpcResult* rpcResult, uint64_t* rpcResultPtr,
+                Log::Reference* logReference, uint32_t rpcId)
 {
     uint16_t keyLength = 0;
     const void *keyString = newObject.getKey(0, &keyLength);
@@ -1310,6 +1315,9 @@ ObjectManager::writeObject(Object& newObject, RejectRules* rejectRules,
 
     if (rpcResult && rpcResultPtr)
         *rpcResultPtr = appends[rpcResultIndex].reference.toInteger();
+
+    if (logReference)
+        *logReference = appends[rpcResultIndex].reference;
 
     tabletManager->incrementWriteCount(key);
     ++PerfStats::threadStats.writeCount;
