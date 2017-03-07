@@ -398,6 +398,7 @@ INSTALL_BINS := \
 
 INSTALL_LIBS := \
     $(OBJDIR)/libramcloud.a \
+    $(OBJDIR)/libramcloud.so \
     $(NULL)
 
 # The header files below are those that must be installed in order to
@@ -454,6 +455,7 @@ INSTALL_INCLUDES := \
     $(OBJDIR)/SpinLockStatistics.pb.h \
     $(OBJDIR)/TableConfig.pb.h \
     $(OBJDIR)/Tablets.pb.h \
+    Arachne/Arachne.h \
     $(NULL)
 
 INSTALLED_BINS := $(patsubst $(OBJDIR)/%, $(INSTALL_DIR)/bin/%, $(INSTALL_BINS))
